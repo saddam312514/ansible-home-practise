@@ -1,0 +1,10 @@
+ 1062  clear
+ 1063  ansible webserver -m yum -a 'name=httpd state=latest' -b
+ 1064  ansible webserver -m yum -a 'name=httpd service=started' -b
+ 1065  ansible webserver -m yum -a 'name=httpd state=started' -b
+ 1066  ansible webserver -m yum -a 'name=httpd state=absent' -b
+ 1067  clear
+ 1068  ansible webserver -m copy -a 'content="This firest add-hoc" dest=/etc/motd mode=0755' --become
+ 1069  ansible webserver -m shell -a 'cat /etc/motd'
+ 1070  clear
+ 1071  history 10 > simplecommand.txt

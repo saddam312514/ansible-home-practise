@@ -1,0 +1,79 @@
+
+- name: install  DB server
+  hosts: db
+  vars:
+  vars_files:
+    - vars.yaml
+  tasks:
+
+  - name: make directory in opt
+    file:
+      path: /mnt/mysql
+      state: directory
+      group: root
+      owner: root
+      mode: u=rwx,g+wx,o+rwx
+
+  - name: Copy the file from master to node1
+    copy: src=/root/mysql80-community-release-el7-3.noarch.rpm dest=/mnt/mysql
+    when: "{{ inventory_hostname == 'host1' }}"
+
+  - name: Install MySQL 5.7 repo
+    yum:
+      name: /mnt/mysql/mysql80-community-release-el7-3.noarch.rpm
+      state: latest
+
+
+  - name: Install MySQL 5.7
+    yum:
+      name:
+        - mysql-community-server
+        - mysql-community-client
+        - MySQL-python
+      state: latest 
+      disable_gpg_check: yes
+
+  - name: Start the MySQL service
+    service:
+      name: mysqld
+      state: started
+      enabled: true
+
+  - name: Change mysql root password and keep track in
+    shell: |
+      password_match=`awk '/A temporary password is generated for/ {a=$0} END{ print a }' /var/log/mysqld.log | awk '{print $(NF)}'`
+      echo $password_match
+      mysql -uroot -p$password_match --connect-expired-password -e "ALTER USER 'root'@'localhost' IDENTIFIED BY '{{ db_pass }}'; flush privileges; "
+      echo "[client]"
+      user=root
+      password="{{ db_pass }}" > /root/.my.cnf
+    args:
+      creates: /root/.my.cnf
+      register: change_temp_pass
+    notify: restart mysqld
+
+  - meta: flush_handlers
+  - debug:
+      var: change_temp_pass
+
+  - name: set mysql host '%' for remote previledge
+    shell: |
+      pass='{{ db_pass }}'
+      mysql -uroot -p$pass -e "CREATE USER 'choya'@'192.168.1.10' IDENTIFIED WITH mysql_native_password BY '{{ db_pass }}'; ALTER USER 'choya'@'192.168.1.10' IDENTIFIED WITH mysql_native_password BY '{{ db_pass }}'; GRANT CREATE, ALTER, DROP, INSERT, UPDATE, DELETE, SELECT, REFERENCES, RELOAD on *.* TO 'choya'@'192.168.1.10' WITH GRANT OPTION; FLUSH PRIVILEGES; "
+
+
+
+  - name: Enable remote login to mysql
+    lineinfile:
+        path: /etc/my.cnf
+        regexp: '^bind-address'
+        line: 'bind-address = 0.0.0.0'
+        backup: yes
+    notify:
+        - restart mysqld
+ 
+  handlers:
+    - name: restart mysqld
+      service: 
+        name: mysqld 
+        state: restarted

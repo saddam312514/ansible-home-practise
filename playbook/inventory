@@ -1,0 +1,7 @@
+[webserver]
+node1
+[db]
+host1
+
+[myself]
+localhost ansible_connection=local

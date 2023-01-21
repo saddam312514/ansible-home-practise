@@ -1,0 +1,9 @@
+[myself]
+localhost
+node2
+node3
+[webserver]
+node1
+
+[db]
+host1

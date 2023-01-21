@@ -1,0 +1,68 @@
+---
+- name: Configur httpd
+  hosts: webserver
+  become: true
+  vars:
+    http_host: '192.168.1.13'
+    http_conf: 'example.conf'
+    http_port: '80'
+  tasks:
+  - name: Create directory site available
+    file: 
+      path: /etc/httpd/sites-available
+      state: directory
+      group: root
+      owner: root
+      mode: u=rwx,g+wx,o+rwx
+  - name: Create directory site Enable
+    file:
+      path: /etc/httpd/sites-enabled
+      state: directory
+      group: root
+      owner: root
+      mode: u=rwx,g+wx,o+rwx
+    
+   
+  - name: Set up Apache virtualhost
+    ansible.builtin.template:
+      src: "apache.j2"
+      dest: "/etc/httpd/sites-available/{{ http_conf }}"
+
+  - name: Create Symbolic link
+    file:
+      src: /etc/httpd/sites-available/example.conf
+      dest: /etc/httpd/sites-enabled/example.conf
+      state: link
+
+  - name: Add a line to HTTP in below
+    ansible.builtin.lineinfile:
+        path: /etc/httpd/conf/httpd.conf
+        line: IncludeOptional sites-enabled/*.conf
+        create: yes
+  
+
+  - name: Create directory site available
+    file:
+      path: /var/www/saddam
+      state: directory
+      group: apache
+      owner: apache
+      mode: u=rwx,g+wx,o+rwx
+  - name: Semanage Fcontext
+    shell: semanage fcontext -a -t httpd_sys_content_t "/var/www/saddam/log(/.*)?"
+    args:
+      executable: /bin/bash
+  - name: Semanage Retore
+    shell: restorecon -R -v /var/www/saddam/log
+    args:
+      executable: /bin/bash
+
+  - name: custom index.html
+    ansible.builtin.copy:
+      dest: /var/www/saddam/index.html
+      content: |
+               Custom Web Page
+  - name: reload Apache
+    ansible.builtin.service:
+      name: httpd
+      state: started
